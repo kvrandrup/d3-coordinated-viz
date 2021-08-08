@@ -7,7 +7,7 @@ var attrArray = ["2016total", "2012total", "2008total", "2004total", "2000total"
 var expressed = attrArray[0]; //initial attribute
 
 //chart frame dimensions
-var chartWidth = window.innerWidth * 0.425,
+var chartWidth = window.innerWidth * 0.5,
     chartHeight = 121,
     leftPadding = 25,
     rightPadding = 2,
@@ -28,8 +28,8 @@ window.onload = setMap();
 function setMap(){
 
     //map frame dimensions
-    var width = window.innerWidth * 0.75,
-        height = 460;
+    var width = window.innerWidth * .5,
+        height = 550;
 
     //create new svg container for the map
     var map = d3.select("body")
@@ -39,11 +39,9 @@ function setMap(){
         .attr("height", height);
 
     //create Albers equal area conic projection centered on equator
-    var projection = d3.geoAlbers()
-        .center([0, 0])
-        .rotate([0, 0, 0])
-        .parallels([10, 20])
-        .scale(150)
+    var projection = d3.geoMercator()
+        .center([0, 10])
+        .scale(110)
         .translate([width / 2, height / 2]);
 
     var path = d3.geoPath()
