@@ -45,24 +45,26 @@ function setMap(){
         .parallels([10, 20])
         .scale(150)
         .translate([width / 2, height / 2]);
+
     var path = d3.geoPath()
 	.projection(projection);
 
-    //use queue to parallelize asynchronous data loading
-    d3.queue()
-        .defer(d3.csv, "data/MedalCount.csv") //load attributes from csv
-        .defer(d3.json, "data/WorldCountries.topojson") //load background spatial data
-        .defer(d3.json, "data/TopMedaling.topojson") //load choropleth spatial data
-        .await(callback);
+    //parallelize asynchronous data loading
+    var promises = [];
+    promises.push(d3.csv("data/MedalCount.csv")); //load attributes from csv
+    promises.push(d3.json("data/WorldCountries.topojson")); //load background spatial data
+    promises.push(d3.json("data/TopMedaling.topojson")); //load choropleth spatial data
+    Promise.all(promises).then(callback);
 
-    function callback(error, csvData, world, topmedals){
+    function callback(data){
+	[csvData, world, topmedals] = data;
 
 	//place graticule on the map
 	setGraticule(map, path);
 
-	//translate TopoJSONs
-        var worldCountries = topojson.features(world, world.objects.WorldCountries).features;
-        var selectedCountries = topojson.features(topmedals, topmedals.objects.TopMedaling).features;
+	//translate spatial data
+	var worldCountries = topojson.feature(world, world.objects.WorldCountries),
+            selectedCountries = topojson.feature(topmedals, topmedals.objects.TopMedaling).features;
 
 	//add all countries to the map
 	var countries = map.append("path")
@@ -82,7 +84,7 @@ function setGraticule(map, path){
 
     //create graticule generator
     var graticule = d3.geoGraticule()
-        .step([10, 10]); //place graticule lines every 5 degrees of longitude and latitud
+        .step([10, 10]); //place graticule lines every 5 degrees of longitude and latitude
 
     //create graticule background
     var gratBackground = map.append("path")
@@ -129,7 +131,7 @@ function joinData(selectedCountries, csvData){        //variables for data join
     return selectedCountries;
 };
 
-//function to create color scale generator
+//function to create color scale generator -- Natural Breaks
 function makeColorScale(data){
     var colorClasses = [
         "#E6F3EC",
@@ -140,7 +142,7 @@ function makeColorScale(data){
     ];
 
     //create color scale generator
-    var colorScale = d3.scaleQuantile()
+    var colorScale = d3.scaleThreshold()
         .range(colorClasses);
 
     //build array of all values of the expressed attribute
@@ -177,7 +179,7 @@ function choropleth(props, colorScale){
     };
 };
 
-function setEnumerationUnits(selectedCountries, map, path){
+function setEnumerationUnits(selectedCountries, map, path, colorScale){
     //add selected countries to the map
     var topmedals = map.selectAll(".topmedals")
 	.data(selectedCountries)
@@ -187,20 +189,20 @@ function setEnumerationUnits(selectedCountries, map, path){
             return "selected " + d.properties.NAME;
         })
         .attr("d", path)
-	.style("fill", function(d){
+        .style("fill", function(d){
             return choropleth(d.properties, colorScale);
         })
-	.on("mouseover", function(d){
-	    highlight(d.properties)
-	})
-	.on("mouseout", function(d){
-	    dehighlight(d.properties);
-	})
-	.on("mousemove", moveLabel);
+        .on("mouseover", function(d){
+            highlight(d.properties);
+        })
+        .on("mouseout", function(d){
+            dehighlight(d.properties);
+        })
+        .on("mousemove", moveLabel);
 
     //add style descriptor to each path
     var desc = selected.append("desc")
-        .text('{"stroke": "#000", "stroke-width": "0.5px"}');
+        .text('{"stroke": "#000", "stroke-width": "0.1px"}');
 };
 
 //function to create coordinated bar chart
@@ -235,7 +237,7 @@ function setChart(csvData, colorScale){
             return i * (chartInnerWidth / csvData.length) + leftPadding;
         })
         .attr("height", function(d, i){
-            return 463 - yScale(parseFloat(d[expressed]));
+            return 121 - yScale(parseFloat(d[expressed]));
         })
         .attr("y", function(d, i){
             return yScale(parseFloat(d[expressed])) + topBottomPadding;
