@@ -11,7 +11,7 @@ var chartWidth = window.innerWidth * 0.45,
     chartHeight = 550,
     leftPadding = 25,
     rightPadding = 2,
-    topBottomPadding = 5,
+    topBottomPadding = 1,
     chartInnerWidth = chartWidth - leftPadding - rightPadding,
     chartInnerHeight = chartHeight - topBottomPadding * 2,
     translate = "translate(" + leftPadding + "," + topBottomPadding + ")";
@@ -71,7 +71,7 @@ function setMap(){
 	    .attr("d", path)
 	    .style("stroke", "#c0c0c0")
 	    .style("stroke-width", 0.75)
-	    .style("fill", "#f0fff0");
+	    .style("fill", "#e5e4e2");
 	
 	//join csv data to GeoJSON enumeration units
         selectedCountries = joinData(selectedCountries, csvData);
@@ -170,11 +170,11 @@ function joinData(selectedCountries, csvData){
 //function to create color scale generator -- Natural Breaks
 function makeColorScale(data){
     var colorClasses = [
-        "#E6F3EC",
-        "#CBE5D8",
-        "#88B29C",
-        "#457D60",
-        "#25523B"
+	"#a8c8c8",
+        "#72ABB3",
+        "#4897A9",
+        "#01779e",
+        "#044e84"
     ];
 
     //create color scale generator
