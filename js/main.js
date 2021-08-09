@@ -7,8 +7,8 @@ var attrArray = ["2016total", "2012total", "2008total", "2004total", "2000total"
 var expressed = attrArray[0]; //initial attribute
 
 //chart frame dimensions
-var chartWidth = window.innerWidth * 0.5,
-    chartHeight = 121,
+var chartWidth = window.innerWidth * 0.45,
+    chartHeight = 550,
     leftPadding = 25,
     rightPadding = 2,
     topBottomPadding = 5,
@@ -18,8 +18,8 @@ var chartWidth = window.innerWidth * 0.5,
 
 //create a scale to size bars proportionally to frame and for axis
 var yScale = d3.scaleLinear()
-    .range([121, 0])
-    .domain([0, 110]);
+    .range([500, 0])
+    .domain([0, 121*1.1]);
 
 //begin script when window loads
 window.onload = setMap();
@@ -28,7 +28,7 @@ window.onload = setMap();
 function setMap(){
 
     //map frame dimensions
-    var width = window.innerWidth * .5,
+    var width = window.innerWidth * .45,
         height = 550;
 
     //create new svg container for the map
@@ -68,18 +68,30 @@ function setMap(){
 	var countries = map.append("path")
 	    .datum(worldCountries)
 	    .attr("class", "countries")
-	    .attr("d", path); 
+	    .attr("d", path)
+	    .style("stroke", "#c0c0c0")
+	    .style("stroke-width", 0.75)
+	    .style("fill", "#f0fff0");
 	
 	//join csv data to GeoJSON enumeration units
         selectedCountries = joinData(selectedCountries, csvData);
 	
 	//add enumeration units to the map
-	setEnumerationUnits(selectedCountries, map, path);
+	setEnumerationUnits(selectedCountries, map, path, colorScale);
+	
+        //create the color scale
+        var colorScale = makeColorScale(csvData);
+
+        //add coordinated visualization to the map
+        setChart(csvData, colorScale);
+
+        // dropdown
+        createDropdown(csvData);
+
     };
 };
 
 function setGraticule(map, path){
-
     //create graticule generator
     var graticule = d3.geoGraticule()
         .step([10, 10]); //place graticule lines every 5 degrees of longitude and latitude
@@ -126,6 +138,32 @@ function joinData(selectedCountries, csvData){        //variables for data join
         };
     };
 
+    return selectedCountries;
+};
+
+function joinData(selectedCountries, csvData){
+    //loop through csv to assign each set of csv attribute values to geojson region
+    for (var i=0; i<csvData.length; i++){
+        var csvRegion = csvData[i]; //the current region
+        var csvKey = csvRegion.NAME; //the CSV primary key
+
+        //loop through geojson regions to find correct region
+        for (var a=0; a<selectedCountries.length; a++){
+
+            var geojsonProps = selectedCountries[a].properties; //the current region geojson properties
+            var geojsonKey = geojsonProps.NAME; //the geojson primary key
+
+            //where primary keys match, transfer csv data to geojson properties object
+            if (geojsonKey == csvKey){
+
+                //assign all attributes and values
+                attrArray.forEach(function(attr){
+                    var val = parseFloat(csvRegion[attr]); //get csv attribute value
+                    geojsonProps[attr] = val; //assign attribute and value to geojson properties
+                });
+            };
+        };
+    };
     return selectedCountries;
 };
 
@@ -181,15 +219,15 @@ function setEnumerationUnits(selectedCountries, map, path, colorScale){
     //add selected countries to the map
     var topmedals = map.selectAll(".topmedals")
 	.data(selectedCountries)
-	.enter()
-	.append("path")
-	.attr("class", function(d){
-            return "selected " + d.properties.NAME;
+        .enter()
+        .append("path")
+        .attr("class", function(d){
+            return "regions " + d.properties.NAME;
         })
         .attr("d", path)
-        .style("fill", function(d){
-            return choropleth(d.properties, colorScale);
-        })
+        .style("fill", "#696969") //function(d){
+            //return choropleth(d.properties, colorScale);
+        //})
         .on("mouseover", function(d){
             highlight(d.properties);
         })
@@ -199,12 +237,13 @@ function setEnumerationUnits(selectedCountries, map, path, colorScale){
         .on("mousemove", moveLabel);
 
     //add style descriptor to each path
-    var desc = selected.append("desc")
-        .text('{"stroke": "#000", "stroke-width": "0.1px"}');
+    var desc = topmedals.append("desc")
+        .text('{"stroke": "#000", "stroke-width": "0.75px"}');
 };
 
 //function to create coordinated bar chart
 function setChart(csvData, colorScale){
+
     //create a second svg element to hold the bar chart
     var chart = d3.select("body")
         .append("svg")
@@ -231,42 +270,24 @@ function setChart(csvData, colorScale){
             return "bar " + d.NAME;
         })
         .attr("width", chartInnerWidth / csvData.length - 1)
-        .attr("x", function(d, i){
-            return i * (chartInnerWidth / csvData.length) + leftPadding;
-        })
-        .attr("height", function(d, i){
-            return 121 - yScale(parseFloat(d[expressed]));
-        })
-        .attr("y", function(d, i){
-            return yScale(parseFloat(d[expressed])) + topBottomPadding;
-        })
-        .style("fill", function(d){
-            return choropleth(d, colorScale);
-        })
-	.transition()
-	.delay(function(d, i){
-	    return i*20
-	})
-	.duration(500)
-	.on("mouseover", highlight)
-	.on("mouseover", dehighlight)
-	.on("mousemove", moveLabel);
+        .on("mouseover", highlight)
+        .on("mouseout", dehighlight)
+        .on("mousemove", moveLabel);
 
-    //add style descriptor to each bar
+    //add style descriptor to each rect
     var desc = bars.append("desc")
-        .text('{"stroke": "none", "stroke-width": "0px"}');
+    .text('{"stroke": "#ccc", "stroke-width": "0.25px"}');
 
     //create a text element for the chart title
     var chartTitle = chart.append("text")
         .attr("x", 40)
         .attr("y", 40)
         .attr("class", "chartTitle")
-        .text("Total Medals in " + expressed[3] + " in each Country");
+        .text("Number of Medals in Won in the "+ expressed[0]+ expressed[1]+ expressed[2]+ expressed[3] + " Olympic Games");
 
     //create vertical axis generator
     var yAxis = d3.axisLeft()
-        .scale(yScale)
-        .orient("left");
+        .scale(yScale);
 
     //place axis
     var axis = chart.append("g")
@@ -280,6 +301,9 @@ function setChart(csvData, colorScale){
         .attr("width", chartInnerWidth)
         .attr("height", chartInnerHeight)
         .attr("transform", translate);
+
+    //set bar positions, heights, and colors
+    updateChart(bars, csvData.length, colorScale);
 };
 
 //function to create a dropdown menu for attribute selection
@@ -296,7 +320,7 @@ function createDropdown(){
     var titleOption = dropdown.append("option")
         .attr("class", "titleOption")
         .attr("disabled", "true")
-        .text("Select Attribute");
+        .text("Select Attribute to Begin");
 
     //add attribute name options
     var attrOptions = dropdown.selectAll("attrOptions")
@@ -312,13 +336,32 @@ function changeAttribute(attribute, csvData){
     //change the expressed attribute
     expressed = attribute;
 
+    // change yscale dynamically
+    csvmax = d3.max(csvData, function(d) { return parseFloat(d[expressed]); });
+    
+    yScale = d3.scaleLinear()
+        .range([chartHeight - 10, 0])
+        .domain([0, csvmax*1.1]);
+
+    //updata vertical axis 
+    d3.select(".axis").remove();
+    var yAxis = d3.axisLeft()
+        .scale(yScale);
+
+    //place axis
+    var axis = d3.select(".chart")
+        .append("g")
+        .attr("class", "axis")
+        .attr("transform", translate)
+        .call(yAxis);
+    
     //recreate the color scale
     var colorScale = makeColorScale(csvData);
 
     //recolor enumeration units
-    var topmedals = d3.selectAll(".topmedals")
-	.transition()
-	.duration(1000)
+    var regions = d3.selectAll(".regions")
+        .transition()
+        .duration(1000)
         .style("fill", function(d){
             return choropleth(d.properties, colorScale)
         });
@@ -328,10 +371,16 @@ function changeAttribute(attribute, csvData){
         //re-sort bars
         .sort(function(a, b){
             return b[expressed] - a[expressed];
-        });
+        })
+        .transition() //add animation
+        .delay(function(d, i){
+            return i * 20
+        })
+        .duration(500);
 
     updateChart(bars, csvData.length, colorScale);
 };
+
 
 //function to position, size, and color bars in chart
 function updateChart(bars, n, colorScale){
@@ -339,9 +388,9 @@ function updateChart(bars, n, colorScale){
     bars.attr("x", function(d, i){
             return i * (chartInnerWidth / n) + leftPadding;
         })
-        //size bars
+        //size/resize bars
         .attr("height", function(d, i){
-            return 121 - yScale(parseFloat(d[expressed]));
+            return 500 - yScale(parseFloat(d[expressed]));
         })
         .attr("y", function(d, i){
             return yScale(parseFloat(d[expressed])) + topBottomPadding;
@@ -350,14 +399,21 @@ function updateChart(bars, n, colorScale){
         .style("fill", function(d){
             return choropleth(d, colorScale);
         });
+    
+    //add text to chart title
+    var chartTitle = d3.select(".chartTitle")
+        .text("Number of Medals in Won in the "+ expressed[0]+ expressed[1]+ expressed[2]+ expressed[3] + " Olympic Games");
 };
+
 
 //function to highlight enumeration units and bars
 function highlight(props){
     //change stroke
-    var selected = d3.selectAll("." + NAME)
-        .style("stroke", "red")
-        .style("stroke-width", "1");
+    var selected = d3.selectAll("." + props.NAME)
+        .style("stroke", "blue")
+        .style("stroke-width", "2");
+    
+    setLabel(props);
 };
 
 //function to reset the element style on mouseout
@@ -369,6 +425,10 @@ function dehighlight(props){
         .style("stroke-width", function(){
             return getStyle(this, "stroke-width")
         });
+    
+    //remove info label
+    d3.select(".infolabel")
+        .remove();
 
     function getStyle(element, styleName){
         var styleText = d3.select(element)
@@ -379,9 +439,6 @@ function dehighlight(props){
 
         return styleObject[styleName];
     };
-    
-    d3.select(".infolabel")
-	.remove();
 };
 
 //function to create dynamic label
@@ -397,9 +454,9 @@ function setLabel(props){
         .attr("id", props.NAME + "_label")
         .html(labelAttribute);
 
-    var countryName = infolabel.append("div")
+    var selectedName = infolabel.append("div")
         .attr("class", "labelname")
-        .html(props.name);
+        .html(props.NAME);
 };
 
 //function to move info label with mouse
@@ -412,8 +469,8 @@ function moveLabel(){
 
     //use coordinates of mousemove event to set label coordinates
     var x1 = d3.event.clientX + 10,
-        y1 = d3.event.clientY - 75, 
-	x2 = d3.event.clientX - labelWidth - 10,
+        y1 = d3.event.clientY - 75,
+        x2 = d3.event.clientX - labelWidth - 10,
         y2 = d3.event.clientY + 25;
 
     //horizontal label coordinate, testing for overflow
@@ -425,6 +482,7 @@ function moveLabel(){
         .style("left", x + "px")
         .style("top", y + "px");
 };
+
 
 //close self-executing function
 })(); //last line of main.js
